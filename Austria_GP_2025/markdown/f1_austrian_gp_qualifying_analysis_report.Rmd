@@ -1,0 +1,323 @@
+---
+output:
+  pdf_document: default
+  html_document: default
+---
+
+1.  Importing Libraries and Loading Dataset
+
+```{r}
+library(here)
+library(tidyverse)
+library(dplyr)
+aus_quali <- read.csv(here("Raw Data", "Austria GP", "2025-Austrian Grand Prix-Qualifying.csv"))
+head(aus_quali)
+
+```
+
+2.  Removing Irrelevant Variables
+
+```{r}
+aus_quali1 <- aus_quali %>% 
+  select(-c(X,Time, DriverNumber, PitOutTime, PitInTime, Sector1SessionTime,Sector2SessionTime, Sector3SessionTime, LapStartDate, LapStartTime, Position, Deleted, FastF1Generated, laptime_sum_sectortimes)) %>% 
+  drop_na(LapTime_in_seconds)
+
+View(aus_quali1)
+```
+
+3.  Finding The Best Quali Laps of Each Driver
+
+```{r}
+best_quali_laps <- aus_quali1 %>% 
+  group_by(Driver) %>% 
+  slice_min(LapTime_in_seconds, n = 1) %>% 
+  arrange(LapTime_in_seconds) %>% 
+  ungroup()
+head(best_quali_laps)
+```
+
+4.  Finding the Fastest 5 Drivers in Each Sector
+
+```{r}
+fastest_sector1 <- aus_quali1 %>% 
+  group_by(Driver) %>% 
+  slice_min(Sector1Time) %>%
+  ungroup() %>% 
+  arrange(Sector1Time)
+
+
+fastest_sector2 <-  aus_quali1 %>% 
+  group_by(Driver) %>% 
+  slice_min(Sector2Time) %>% 
+  ungroup() %>% 
+  arrange(Sector2Time)
+
+fastest_sector3 <- aus_quali1 %>% 
+  group_by(Driver) %>% 
+  slice_min(Sector3Time) %>% 
+  ungroup() %>% 
+  arrange(Sector3Time)
+
+
+head(fastest_sector1)
+head(fastest_sector2)
+head(fastest_sector3)
+
+```
+
+5.  Driver Lap Progression for Mclaren F1 Team
+
+5.1 Mclaren
+
+```{r}
+aus_quali1 %>% 
+  filter(Driver %in% c("NOR", "PIA")) %>% 
+  filter(LapTime_in_seconds < 70) %>% 
+  ggplot(aes(x = LapNumber, y = LapTime_in_seconds, color = Driver))+
+  geom_line()+
+  geom_point()+
+  labs(title = "Lap Progression Between Norris and Piastri", 
+       subtitle = "Laps From Q1 to Q3",
+       x = "Lap Number",
+       y = "Total Lap Time ( Seconds )")+
+  theme_minimal()+
+  theme(
+    plot.title = element_text(size = 16, face = "bold"),
+    plot.subtitle = element_text(size = 12),
+    axis.title = element_text(size = 12, face = "bold")
+  )
+  
+```
+
+5.1 Red Bull
+
+```{r}
+aus_quali1 %>% 
+  filter(Driver %in% c("VER", "TSU")) %>% 
+  filter(LapTime_in_seconds < 70) %>% 
+  ggplot(aes(x = LapNumber, y = LapTime_in_seconds, color = Driver))+
+  geom_line()+
+  geom_point()+
+  labs(
+    title = "Lap Progression Between Verstappen and Tsunoda",
+    subtitle = "Laps From Q1 to Q3",
+    x = "Lap Number",
+    y = "Total Lap Time ( Seconds )")+
+  theme_minimal()+
+  theme(
+    plot.title = element_text(size = 16, face = "bold"),
+    plot.subtitle = element_text(size = 12),
+    axis.title = element_text(size = 12, face = "bold")
+  )
+  
+```
+
+5.3 Ferrari
+
+```{r}
+aus_quali1 %>% 
+  filter(Driver %in% c("LEC", "HAM")) %>% 
+  filter(LapTime_in_seconds < 70) %>% 
+  ggplot(aes(x = LapNumber, y = LapTime_in_seconds, color = Driver))+
+  geom_line()+
+  geom_point()+
+  labs(
+    title = "Lap Progression Between Leclerc and Hamilton",
+    subtitle = "Laps From Q1 to Q3",
+    x = "Lap Number",
+    y = "Total Lap Time ( Seconds )")+
+  theme_minimal()+
+  theme(
+    plot.title = element_text(size = 16, face = "bold"),
+    plot.subtitle = element_text(size = 12),
+    axis.title = element_text(size = 12, face = "bold")
+  )
+  
+```
+
+5.4 Mercedes
+
+```{r}
+aus_quali1 %>% 
+  filter(Driver %in% c("RUS", "ANT")) %>% 
+  filter(LapTime_in_seconds < 70) %>% 
+  ggplot(aes(x = LapNumber, y = LapTime_in_seconds, color = Driver))+
+  geom_line()+
+  geom_point()+
+  labs(
+    title = "Lap Progression Between Russell and Antonelli",
+    subtitle = "Laps From Q1 to Q3",
+    x = "Lap Number",
+    y = "Total Lap Time ( Seconds )")+
+  theme_minimal()+
+  theme(
+    plot.title = element_text(size = 16, face = "bold"),
+    plot.subtitle = element_text(size = 12),
+    axis.title = element_text(size = 12, face = "bold")
+  )
+  
+```
+
+6.  Tyre Compound
+
+```{r}
+tyre_compound <- best_quali_laps %>% 
+  group_by(Team, Compound) %>% 
+  count()
+
+head(tyre_compound)
+```
+
+7.  Who improved the most between their first and best lap
+
+```{r}
+first_lap_seconds <-aus_quali1 %>% 
+  group_by(Driver) %>% 
+  filter(LapTime_in_seconds < 70) %>% 
+  arrange(LapNumber) %>% 
+  slice(1) %>% 
+  select(Driver, first_lap = LapTime_in_seconds)
+
+head(first_lap_seconds, 20)
+
+fastest_laps_seconds <- aus_quali1 %>% 
+  group_by(Driver) %>% 
+  filter(LapTime_in_seconds < 70) %>% 
+  slice_min(LapTime_in_seconds) %>% 
+  select(Driver, fastest_lap = LapTime_in_seconds)
+
+time_diff <- first_lap_seconds %>% 
+  left_join(fastest_laps_seconds, by = "Driver") %>% 
+  mutate(Improvements = first_lap - fastest_lap) %>% 
+  arrange(-Improvements)
+  
+head(time_diff,20)
+
+ggplot(time_diff)+
+  geom_col(aes(x = fct_reorder(Driver, Improvements), y = Improvements, fill = Driver))+
+  labs(
+    title = "Most Improved Performance Between First and Best Lap",
+    subtitle = "Measured in Seconds",
+    x = "Drivers",
+    y = "Time ( seconds )")+
+  theme_minimal()+
+  theme(
+    plot.title = element_text(size = 16, face = "bold"),
+    plot.subtitle = element_text(size = 12),
+    axis.title = element_text(size = 12,  face = "bold"),
+    legend.position = "none"
+  )
+
+```
+
+8. Average Pace for Fresh and Used Tyres
+
+```{r}
+
+fresh_tyres_pace <- aus_quali1 %>% 
+  group_by(Driver) %>% 
+  filter(LapTime_in_seconds < 70, FreshTyre == "True") %>% 
+  summarize(average_fresh_tyre_pace = mean(LapTime_in_seconds)) %>% 
+  arrange(average_fresh_tyre_pace) %>% 
+  ungroup()
+
+head(fresh_tyres_pace)
+
+used_tyres_pace <- aus_quali1 %>% 
+  group_by(Driver) %>% 
+  filter(LapTime_in_seconds < 70, FreshTyre == "False") %>% 
+  summarize(average_used_tyre_pace = mean(LapTime_in_seconds)) %>% 
+  arrange(average_used_tyre_pace) %>% 
+  ungroup()
+
+head(used_tyres_pace)
+
+tyre_pace_diff <- fresh_tyres_pace %>% 
+  left_join(used_tyres_pace, by = "Driver") %>% 
+  mutate(pace_diff = average_used_tyre_pace - average_fresh_tyre_pace)
+
+ggplot(tyre_pace_diff)+
+  geom_col(aes(x = reorder(Driver, pace_diff), y = pace_diff, fill = Driver))+
+  
+  geom_text(aes(x = reorder(Driver, pace_diff), y = pace_diff,label = round(pace_diff, 2)), 
+            hjust = -0.5,
+            size = 3) +
+  labs(
+    title = "Time Gained on Fresh Tyres vs Used",
+    subtitle = "Measured in Seconds",
+    x = "Drivers",
+    y = "Time ( seconds )"
+  )+
+  coord_flip()+
+  theme_minimal()+
+  theme(
+    plot.title = element_text(size = 16, face = "bold"),
+    plot.subtitle = element_text(size = 12),
+    axis.title = element_text(size = 12, face = "bold"),
+    legend.position = "none"
+  )
+```
+9. Gap to Own Ideal Lap for Each Driver
+
+```{r}
+ideal_laps <- aus_quali1 %>% 
+  group_by(Driver) %>% 
+  summarize(best_sector_1 = min(Sector1Time),
+            best_sector_2 = min(Sector2Time),
+            best_sector_3 = min(Sector3Time),
+            ideal_lap = best_sector_1 + best_sector_2 + best_sector_3,
+            best_lap = min(LapTime_in_seconds)) %>% 
+  mutate(potential_gains = round(best_lap - ideal_lap,3)) %>% 
+  arrange(potential_gains)
+
+head(ideal_laps)
+
+ggplot(ideal_laps)+
+  geom_col(aes(x = reorder(Driver, potential_gains), y = potential_gains, fill = Driver))+
+  labs(
+    title = "Gap to Ideal Laptime",
+    subtitle = "The Gap to Drivers' Own Ideal Lap Measured in Seconds",
+    x = "Drivers",
+    y = "Potential Gains ( seconds )")+
+  theme_minimal()+
+  theme(
+    plot.title = element_text(size = 16, face = "bold"),
+    plot.subtitle = element_text(size = 12),
+    axis.title = element_text(size = 12, face = "bold"),
+    legend.position = "none"
+  )
+```
+10.0 Gap to Pole for Each Driver
+
+```{r}
+pole <- min(aus_quali1$LapTime_in_seconds)
+
+gap_to_pole <-  aus_quali1 %>% 
+  group_by(Driver) %>% 
+  summarize(gap = min(LapTime_in_seconds) - pole) %>% 
+  arrange(gap)
+
+head(gap_to_pole)
+
+ggplot(gap_to_pole)+
+  geom_col(aes(x = reorder(Driver,-gap), y = gap, fill = Driver))+
+  labs(
+    title = "Gap To Pole Lap",
+    subtitle = "Measured in Seconds",
+    x = "Driver",
+    y = "Gap to Pole ( seconds)"
+  )+
+  theme_minimal()+
+  theme(
+    plot.title = element_text(size = 16, face = "bold"),
+    plot.subtitle = element_text(size = 12),
+    axis.title = element_text(size = 12, face = "bold"),
+    legend.position = "none"
+  )+
+  coord_flip()
+
+```
+
+
+
+
